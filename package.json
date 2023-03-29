@@ -1,0 +1,24 @@
+{
+  "version": "0.0.1",
+  "name": "@vjmap/common",
+  "main": "src/index.ts",
+  "license": "Apache-2.0",
+  "scripts": {
+    "build": "npm run build:type && vite build  && api-extractor run",
+    "build:type": "npm run clear:type && tsc --declaration --emitDeclarationOnly --project tsconfig.build.json",
+    "clear:type": "rimraf ./types"
+  },
+  "engines": {
+    "node": ">=14"
+  },
+  "dependencies": {
+    "vjmap": "^1.0.97"
+  },
+  "devDependencies": {
+    "@microsoft/api-extractor": "^7.34.4",
+    "@types/node": "^15.14.9",
+    "rimraf": "^3.0.2",
+    "typescript": "^4.9.5",
+    "vite": "^3.2.3"
+  }
+}
