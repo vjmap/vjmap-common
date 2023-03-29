@@ -204,7 +204,7 @@ export const exportDwg = async (map: Map,  draw: IDrawTool, newMapId?: string) =
         } else if (feature.geometry.type == "LineString") {
             addEntitys.push(...creatLineString(feature.geometry.coordinates, feature.properties));
         }  else if (feature.geometry.type == "Polygon") {
-            if (feature.properties.export?.contents) {
+            if (feature.properties.export) {
                 // 如果是文字
                 const text = createText(feature, feature.properties, map);
                 if (text && text.length > 0) {
@@ -218,7 +218,7 @@ export const exportDwg = async (map: Map,  draw: IDrawTool, newMapId?: string) =
                 addEntitys.push(...creatPoint(coord, feature.properties, defaultRadius, false, map));
             }
         } else if (feature.geometry.type == "MultiLineString") {
-            if (feature.properties.export?.contents) {
+            if (feature.properties.export) {
                 // 如果是文字
                 const text = createText(feature, feature.properties, map);
                 if (text && text.length > 0) {
@@ -230,7 +230,7 @@ export const exportDwg = async (map: Map,  draw: IDrawTool, newMapId?: string) =
                 addEntitys.push(...creatLineString(coord, feature.properties));
             }
         }  else if (feature.geometry.type == "MultiPolygon") {
-            if (feature.properties.export?.contents) {
+            if (feature.properties.export) {
                 // 如果是文字
                 const text = createText(feature, feature.properties, map);
                 if (text && text.length > 0) {
@@ -242,7 +242,7 @@ export const exportDwg = async (map: Map,  draw: IDrawTool, newMapId?: string) =
                 addEntitys.push(...creatPolygon(coord, feature.properties));
             }
         }else if (feature.geometry.type == "GeometryCollection") {
-            if (feature.properties.export?.contents) {
+            if (feature.properties.export) {
                 // 如果是文字
                 const text = createText(feature, feature.properties, map);
                 if (text && text.length > 0) {

@@ -1,6 +1,7 @@
 import { Service, Map, Control, IControl } from "vjmap";
 import { MapAppConfig, MapLayer, MapOpenOptions, MapOption, MapSource } from "./types";
 import LayerBase from "./layers/base";
+import { listenKeyEvent } from "./map/keyboard";
 export declare class MapApp {
     config: MapAppConfig;
     svc: Service;
@@ -17,6 +18,7 @@ export declare class MapApp {
     context?: any;
     private programCleaner?;
     private oldCacheImages?;
+    keyEvent?: ReturnType<typeof listenKeyEvent>;
     constructor(config?: MapAppConfig);
     mount(containerId: string, env?: {
         serviceUrl: string;

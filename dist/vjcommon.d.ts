@@ -14,7 +14,7 @@ import { default as vjmap_2 } from 'vjmap';
 
 export declare const addExportRefInfoInText: (prj: any, data: any) => any;
 
-export declare const addFeaturesToDraw: (data: any, drawLayer: any) => any;
+export declare const addFeaturesToDraw: (data: any, drawLayer: any, combineInObject?: boolean) => any;
 
 export declare const addHighLightSourceLayer: (map: Map_2, layerId?: string, highlightColor?: string) => void;
 
@@ -123,9 +123,9 @@ export declare type DbTable = {
     indexs: DbIndex[];
 };
 
-export declare const deleteCadEntity: (map: Map_2, draw: IDrawTool, updateMapStyleObj: any, showInfoFunc?: Function, dlgConfirmInfo?: Function) => Promise<void>;
+export declare const deleteCadEntity: (map: Map_2, draw: IDrawTool, updateMapStyleObj: any, showInfoFunc?: Function, dlgConfirmInfo?: Function, isRectSel?: boolean) => Promise<void>;
 
-export declare const deleteOrModifyCadEntity: (map: Map_2, draw: IDrawTool, updateMapStyleObj: any, isDelete: boolean, showInfoFunc?: Function, dlgConfirmInfo?: Function) => Promise<void>;
+export declare const deleteOrModifyCadEntity: (map: Map_2, draw: IDrawTool, updateMapStyleObj: any, isDelete: boolean, showInfoFunc?: Function, dlgConfirmInfo?: Function, isRectSel?: boolean) => Promise<void>;
 
 export declare const drawArrow: (map: Map_2, draw: IDrawTool, options?: Record<string, any>, drawProperty?: Record<string, any>, showInfoFunc?: Function, param?: Record<string, any>) => Promise<void>;
 
@@ -245,6 +245,14 @@ export declare class LayerBase {
     setMarkerOptions(marker: Marker, options: Record<string, any>): void;
 }
 
+export declare const listenKeyEvent: () => {
+    removeEventListener: () => void;
+    isAltKey: () => boolean | undefined;
+    isCtrlKey: () => boolean | undefined;
+    isShiftKey: () => boolean | undefined;
+    curKey: () => KeyboardEvent | undefined;
+};
+
 export declare const loadDataToDraw: (map: Map_2, draw: IDrawTool, data: string, updateMapStyleObj: any) => Promise<void>;
 
 export declare const loadWebMap: (map: Map_2, config: MapAppConfig) => void;
@@ -265,6 +273,7 @@ export declare class MapApp {
     context?: any;
     private programCleaner?;
     private oldCacheImages?;
+    keyEvent?: ReturnType<typeof listenKeyEvent>;
     constructor(config?: MapAppConfig);
     mount(containerId: string, env?: {
         serviceUrl: string;
@@ -430,7 +439,7 @@ declare interface MapSource {
     [key: string]: any;
 }
 
-export declare const modifyCadEntity: (map: Map_2, draw: IDrawTool, updateMapStyleObj: any, showInfoFunc?: Function, dlgConfirmInfo?: Function) => Promise<void>;
+export declare const modifyCadEntity: (map: Map_2, draw: IDrawTool, updateMapStyleObj: any, showInfoFunc?: Function, dlgConfirmInfo?: Function, isRectSel?: boolean) => Promise<void>;
 
 export declare const osmProviderTiles: () => string[];
 
@@ -698,6 +707,7 @@ declare namespace vjcommon {
         createUpdateMapStyleObj,
         createUpdateMapStyleRasterObj,
         createUpdateMapStyleVectorObj,
+        listenKeyEvent,
         WmsOverlayMapType,
         WmsBaseMapParam,
         WmsMapParam,

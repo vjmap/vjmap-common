@@ -1053,16 +1053,44 @@ export const drawText = async (
 
 
   // 增加绘图对象，并组合成一个实体
-  export const addFeaturesToDraw = (data: any, drawLayer: any) => {
-    let addFeatureIds: any = [];
-    data.features.forEach((feature: any) => {
-      addFeatureIds.push(...drawLayer.add(feature));
-    });
-    // 先选中此实体
-    drawLayer.changeMode("simple_select", { featureIds: addFeatureIds });
-    // 然后组合成一个
-    drawLayer.combineFeatures();
-    return addFeatureIds.length;
+  export const addFeaturesToDraw = (data: any, drawLayer: any, combineInObject?: boolean /*按objectid合成一个组*/) => {
+    const objectIdSet = new Set();
+    if (combineInObject) {
+      // 按objectid合成一个组
+      data.features.forEach((feature: any) => {
+        if (feature && feature.properties && feature.properties.objectid) {
+          objectIdSet.add(feature.properties.objectid);
+        }
+      });
+    }
+    if (!combineInObject || objectIdSet.size == 0) {
+      let addFeatureIds: any = [];
+      data.features.forEach((feature: any) => {
+        addFeatureIds.push(...drawLayer.add(feature));
+      });
+      // 先选中此实体
+      drawLayer.changeMode("simple_select", { featureIds: addFeatureIds });
+      // 然后组合成一个
+      drawLayer.combineFeatures();
+      return addFeatureIds.length;
+    } else {
+      // 按objectid合成一个组
+      // 获取所有的objectid
+      for(let objectid of objectIdSet) {
+        let addFeatureIds: any = [];
+        data.features.forEach((feature: any) => {
+          if (feature.properties.objectid == objectid) {
+            addFeatureIds.push(...drawLayer.add(feature));
+          }
+        });
+        if (addFeatureIds.length == 0) continue;
+        // 先选中此实体
+        drawLayer.changeMode("simple_select", { featureIds: addFeatureIds });
+        // 然后组合成一个
+        drawLayer.combineFeatures();
+      }
+      return objectIdSet.size;
+    }
   };
 
   

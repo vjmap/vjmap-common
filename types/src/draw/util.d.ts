@@ -35,4 +35,4 @@ export declare const createLineTypeCurve: (map: Map, draw: IDrawTool, options?: 
 export declare const createHatch: (map: Map, draw: IDrawTool, options?: Record<string, any>, drawProperty?: Record<string, any>, showInfoFunc?: Function, param?: Record<string, any>) => Promise<void>;
 export declare const createOutSymbol: (map: Map, draw: IDrawTool, options?: Record<string, any>, drawProperty?: Record<string, any>, showInfoFunc?: Function, param?: Record<string, any>) => Promise<void>;
 export declare const drawText: (map: Map, draw: IDrawTool, options?: Record<string, any>, drawProperty?: Record<string, any>, showInfoFunc?: Function) => Promise<void>;
-export declare const addFeaturesToDraw: (data: any, drawLayer: any) => any;
+export declare const addFeaturesToDraw: (data: any, drawLayer: any, combineInObject?: boolean) => any;

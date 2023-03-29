@@ -63,6 +63,7 @@ const getSelectedWholeEntityId = async (map: Map,
         zoom: map.getZoom(),
         x: bounds[0],
         y: bounds[1],
+        limit: 100, 
         ...queryParam,
         fields: "objectid"
       });
@@ -172,6 +173,7 @@ export const getHighlightEntities = async (
       zoom: map.getZoom(),
       x: bounds[0],
       y: bounds[1],
+      limit: 100, 
       ...queryParam,
     });
     

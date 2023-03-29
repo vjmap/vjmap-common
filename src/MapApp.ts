@@ -8,6 +8,7 @@ import { loadWebMap } from "./web/provider";
 import { locale } from "./map/setting"
 import LayerBase from "./layers/base";
 import { getWmsMapsBounds, getWmsTileUrl } from "./map/wms";
+import { listenKeyEvent } from "./map/keyboard";
 // 地图应用类
 export class MapApp {
   public config!: MapAppConfig;
@@ -25,6 +26,7 @@ export class MapApp {
   public context?: any; // 上下文环境
   private programCleaner?: Function[]; //函数清理回调
   private oldCacheImages?: Record<string, any>;
+  public keyEvent?: ReturnType<typeof listenKeyEvent>; // 键盘事件
   constructor(config?: MapAppConfig) {
     this.config = config || {};
     this.sources = [];
@@ -40,6 +42,7 @@ export class MapApp {
     env?: { serviceUrl: string; serviceToken: string }
   ) {
     if (this.svc) return; // 如果已经挂载过
+    if (!this.keyEvent) this.keyEvent = listenKeyEvent();
     this.containerId = containerId;
     if (this.config?.backgroundColor) {
       const element = document.getElementById(containerId);
@@ -87,6 +90,7 @@ export class MapApp {
   public attachMap(map: Map) {
     this.map = map;
     this.svc = this.map.getService();
+    if (!this.keyEvent) this.keyEvent = listenKeyEvent();
   }
 
   // 底图是否为互联网底图
@@ -370,6 +374,7 @@ export class MapApp {
       // @ts-ignore
       this.map = null;
     }
+    if (this.keyEvent) this.keyEvent.removeEventListener();
   }
 
   /**

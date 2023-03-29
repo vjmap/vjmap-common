@@ -12,6 +12,7 @@ export * from './map/highlight';
 export * from './map/select';
 export * from './map/snap';
 export * from './map/style';
+export * from './map/keyboard';
 export * from './map/wms';
 export * from './web/provider';
 export * from './utils';
