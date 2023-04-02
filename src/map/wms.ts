@@ -408,3 +408,33 @@ export const base2OverlayCoordinate =  (pt: vjmap.GeoPoint,
     }
     return vjmap.coordTransfromByFourParamter(pt, param);
 }
+
+// 获取EPSG范围(北京54三度带、北京54六度带、西安80三度带、西安80六度带、2000三度带、2000六度带)
+export const getEpsgRange = (type: "BEIJING54_3" | "BEIJING54_6" | "XIAN80_3" | "XIAN80_6" | "CGCS2000_3" | "CGCS2000_6")=>  {
+    let epsgs: any = [];
+    let begin = 0;
+    let end = 0;
+    if (type == "BEIJING54_3") {
+        begin = 2401;
+        end = 2442;
+    } else if (type == "BEIJING54_6") {
+        begin = 21413;
+        end = 21483;
+    } else if (type == "XIAN80_3") {
+        begin = 2327;
+        end = 2348;
+    } else if (type == "XIAN80_6") {
+        begin = 2349;
+        end = 2390;
+    } else if (type == "CGCS2000_3") {
+        begin = 4513;
+        end = 4554;
+    } else if (type == "CGCS2000_6") {
+        begin = 4491;
+        end = 4512;
+    }
+    for(let i = begin; i <= end; i++) {
+        epsgs.push(`EPSG:${i}`)
+    }
+    return epsgs
+}

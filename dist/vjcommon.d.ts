@@ -55,6 +55,8 @@ export declare const clearHighLightSourceLayer: (map: Map_2, layerId?: string) =
 
 export declare const convertArrayToGeoJson: (value: Array<[number, number]>) => any;
 
+export declare const copyCadEntity: (map: Map_2, draw: IDrawTool, updateMapStyleObj: any, showInfoFunc?: Function, dlgConfirmInfo?: Function, isRectSel?: boolean, promptFunc?: Function) => Promise<void>;
+
 export declare const createGeomData: (map: Map_2, entities?: any, docMapBounds?: any, environment?: any, linetypes?: any, dbFrom?: any) => Promise<{
     type: string;
     features: {
@@ -123,9 +125,7 @@ export declare type DbTable = {
     indexs: DbIndex[];
 };
 
-export declare const deleteCadEntity: (map: Map_2, draw: IDrawTool, updateMapStyleObj: any, showInfoFunc?: Function, dlgConfirmInfo?: Function, isRectSel?: boolean) => Promise<void>;
-
-export declare const deleteOrModifyCadEntity: (map: Map_2, draw: IDrawTool, updateMapStyleObj: any, isDelete: boolean, showInfoFunc?: Function, dlgConfirmInfo?: Function, isRectSel?: boolean) => Promise<void>;
+export declare const deleteCadEntity: (map: Map_2, draw: IDrawTool, updateMapStyleObj: any, showInfoFunc?: Function, dlgConfirmInfo?: Function, isRectSel?: boolean, promptFunc?: Function) => Promise<void>;
 
 export declare const drawArrow: (map: Map_2, draw: IDrawTool, options?: Record<string, any>, drawProperty?: Record<string, any>, showInfoFunc?: Function, param?: Record<string, any>) => Promise<void>;
 
@@ -153,6 +153,8 @@ export declare const drawSlantRectangle: (map: Map_2, draw: IDrawTool, options?:
 
 export declare const drawText: (map: Map_2, draw: IDrawTool, options?: Record<string, any>, drawProperty?: Record<string, any>, showInfoFunc?: Function) => Promise<void>;
 
+export declare const editCadEntity: (map: Map_2, draw: IDrawTool, updateMapStyleObj: any, editOp: "delete" | "modify" | "copy", showInfoFunc?: Function, dlgConfirmInfo?: Function, isRectSel?: boolean, promptFunc?: Function) => Promise<void>;
+
 export declare function evalDataConvert(featureCollection: any, code: string, map: Map_2, mapApp: any): Promise<any>;
 
 export declare function execProgram(code: string, map: Map_2, mapApp: any, context?: any): Promise<any>;
@@ -162,6 +164,8 @@ export declare const exportDwg: (map: Map_2, draw: IDrawTool, newMapId?: string)
 export declare const gaodeProviderTiles: (isImageUrl?: boolean) => string[];
 
 export declare const getEntityObjectId: (id: string) => string;
+
+export declare const getEpsgRange: (type: "BEIJING54_3" | "BEIJING54_6" | "XIAN80_3" | "XIAN80_6" | "CGCS2000_3" | "CGCS2000_6") => any;
 
 export declare const getGeoJsonBounds: (data: any) => vjmap_2.GeoBounds;
 
@@ -176,6 +180,8 @@ export declare const getHighlightEntities: (map: Map_2, bounds: [number, number,
 export declare const getInstance: (dbName: string) => TsIndexDb;
 
 export declare const getMapSnapPoints: (map: Map_2, snapObj: any, snapQueryLimit?: number) => Promise<void>;
+
+export declare const getPointOnePixelDrawStyleOption: () => any;
 
 export declare const getShardsTileUrl: (tileUrl: string, map?: Map_2) => string[];
 
@@ -439,7 +445,7 @@ declare interface MapSource {
     [key: string]: any;
 }
 
-export declare const modifyCadEntity: (map: Map_2, draw: IDrawTool, updateMapStyleObj: any, showInfoFunc?: Function, dlgConfirmInfo?: Function, isRectSel?: boolean) => Promise<void>;
+export declare const modifyCadEntity: (map: Map_2, draw: IDrawTool, updateMapStyleObj: any, showInfoFunc?: Function, dlgConfirmInfo?: Function, isRectSel?: boolean, promptFunc?: Function) => Promise<void>;
 
 export declare const osmProviderTiles: () => string[];
 
@@ -668,13 +674,15 @@ declare namespace vjcommon {
         createOutSymbol,
         drawText,
         addFeaturesToDraw,
+        getPointOnePixelDrawStyleOption,
         isTrackFeature,
         setTrackFeatureProperty,
         getTrackFeatureProperty,
         addExportRefInfoInText,
-        deleteOrModifyCadEntity,
+        editCadEntity,
         deleteCadEntity,
         modifyCadEntity,
+        copyCadEntity,
         createGeomData,
         loadDataToDraw,
         DbRecord,
@@ -723,6 +731,7 @@ declare namespace vjcommon {
         web2cadCoordinate,
         overlay2BaseCoordinate,
         base2OverlayCoordinate,
+        getEpsgRange,
         osmProviderTiles,
         tiandituProviderTiles,
         gaodeProviderTiles,

@@ -505,6 +505,7 @@ export const interactiveCreateGeom = async (
     let scalex = length / dataGeoBounds.width(); // 缩放的比例
     let scaley = length / dataGeoBounds.height(); // 缩放的比例
     let dblScale = Math.min(scalex, scaley);
+    if (vjmap.isZero(dblScale)) dblScale = 1.0;
 
     let basePoint = dataBounds.center();
     if (param.baseAlign == "leftBottom") {
@@ -594,17 +595,24 @@ export const interactiveCreateGeom = async (
       });
 
       if (drawScalePoint.cancel) {
-        cancelDraw();
-        tempLine.remove(); // 绘制完成，删除
-        return; // 取消操作
+        if (drawScalePoint.isEnterKey) {
+          // 如果是按回车键。不是按ESC键取消的，就用默认值
+          scale = 1.0;
+        } else {
+          // ESC键取消的
+          cancelDraw();
+          tempLine.remove(); // 绘制完成，删除
+          return; // 取消操作
+        }
+      } else {
+        // 已经获取了缩放系数
+        let scalePt = map.fromLngLat(
+          drawScalePoint.features[0].geometry.coordinates
+        );
+        let dist = scalePt.distanceTo(destPt);
+        scale = dist / (geoDataBounds.width() / 2.0);
+        if (scale < 0.0001) scale = 0.1;
       }
-      // 已经获取了缩放系数
-      let scalePt = map.fromLngLat(
-        drawScalePoint.features[0].geometry.coordinates
-      );
-      let dist = scalePt.distanceTo(destPt);
-      scale = dist / (geoDataBounds.width() / 2.0);
-      if (scale < 0.0001) scale = 0.1;
       tempLine.setData(map.toLngLat([destPt, destPt]));
     }
 
@@ -633,6 +641,11 @@ export const interactiveCreateGeom = async (
       });
       tempLine.remove(); // 绘制完成，删除
       if (drawRotatePoint.cancel) {
+        if (!drawRotatePoint.isEnterKey) {
+          // ESC键取消的
+          cancelDraw();
+          return; // 取消操作
+        }
         // 不设置旋转默认为0
         angle = 0;
         let drawData = transformGeoJsonData(
@@ -655,8 +668,9 @@ export const interactiveCreateGeom = async (
       feature: drawFeatures,
       rotation: angle
     };
-  } catch (e) {
+  } catch (e: any) {
     cancelDraw();
+    if (showInfoFunc) showInfoFunc(e?.message ?? e)
   }
 };
 
@@ -1071,11 +1085,18 @@ export const drawText = async (
       // 先选中此实体
       drawLayer.changeMode("simple_select", { featureIds: addFeatureIds });
       // 然后组合成一个
-      drawLayer.combineFeatures();
+      try {
+        // 忽略合并中的错误
+        drawLayer.combineFeatures();
+        // @ts-ignore
+      } catch (error) {
+        
+      }
       return addFeatureIds.length;
     } else {
       // 按objectid合成一个组
       // 获取所有的objectid
+      let oldSize = drawLayer.getAll().features.length;
       for(let objectid of objectIdSet) {
         let addFeatureIds: any = [];
         data.features.forEach((feature: any) => {
@@ -1087,10 +1108,43 @@ export const drawText = async (
         // 先选中此实体
         drawLayer.changeMode("simple_select", { featureIds: addFeatureIds });
         // 然后组合成一个
-        drawLayer.combineFeatures();
+        try {
+          // 忽略合并中的错误
+          drawLayer.combineFeatures();
+          // @ts-ignore
+        } catch (error) {
+          
+        }
       }
+      let featureIds: any = [];
+      let drawFeatures = drawLayer.getAll().features;
+      for(let k = oldSize; k < drawFeatures.length; k++) {
+        featureIds.push(drawFeatures[k].id)
+      }
+      drawLayer.changeMode("simple_select", { featureIds: featureIds });
       return objectIdSet.size;
     }
   };
 
-  
+  // 获取点的半径为1个像素的缺省绘制样式。
+  export const getPointOnePixelDrawStyleOption = () => {
+    const opts = vjmap.Draw.defaultOptions();
+    // 修改默认样式，把点的半径改成1，没有边框，默认为5
+    let pointIdx = opts.styles.findIndex((s: any) => s.id === "gl-draw-point-point-stroke-inactive");
+    if (pointIdx >= 0) {
+        opts.styles[pointIdx]['paint']['circle-radius'][3][3] = 0
+    }
+    pointIdx = opts.styles.findIndex((s: any) => s.id === "gl-draw-point-inactive");
+    if (pointIdx >= 0) {
+        opts.styles[pointIdx]['paint']['circle-radius'][3][3] = 1
+    }
+    pointIdx = opts.styles.findIndex((s: any) => s.id === "gl-draw-point-stroke-active");
+    if (pointIdx >= 0) {
+        opts.styles[pointIdx]['paint']['circle-radius'][3] = 0
+    }
+    pointIdx = opts.styles.findIndex((s: any) => s.id === "gl-draw-point-active");
+    if (pointIdx >= 0) {
+        opts.styles[pointIdx]['paint']['circle-radius'][3] = 1
+    }
+    return opts;
+  }

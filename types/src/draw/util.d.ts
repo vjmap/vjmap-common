@@ -36,3 +36,4 @@ export declare const createHatch: (map: Map, draw: IDrawTool, options?: Record<s
 export declare const createOutSymbol: (map: Map, draw: IDrawTool, options?: Record<string, any>, drawProperty?: Record<string, any>, showInfoFunc?: Function, param?: Record<string, any>) => Promise<void>;
 export declare const drawText: (map: Map, draw: IDrawTool, options?: Record<string, any>, drawProperty?: Record<string, any>, showInfoFunc?: Function) => Promise<void>;
 export declare const addFeaturesToDraw: (data: any, drawLayer: any, combineInObject?: boolean) => any;
+export declare const getPointOnePixelDrawStyleOption: () => any;

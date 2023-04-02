@@ -18,7 +18,7 @@ export const addHighLightSourceLayer = (
   map.addCircleLayer(`${name}-point-layer`, `${name}-source`, {
     circleColor: highlightColor,
     circleOpacity: 0.8,
-    circleRadius: 5,
+    circleRadius: 1,
     filter: ["==", ["geometry-type"], "Point"],
   });
 

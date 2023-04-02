@@ -26,7 +26,7 @@ export async function execProgram(code: string, map: Map, mapApp: any, context?:
   // 通过新的方法创建异步函数
   const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
   // 使用
-  const asyncFunc = new AsyncFunction("vjmap", "map", "mapApp", "context", "common", code);
+  const asyncFunc = new AsyncFunction("vjmap", "map", "mapApp", "context", "vjcommon", code);
   let result = await asyncFunc(vjmap, map, mapApp, context, common);
   return result;
 }

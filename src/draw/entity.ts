@@ -3,20 +3,22 @@ import { addExportRefInfoInText, getTrackFeatureProperty, setTrackFeaturePropert
 import { selectFeatures } from "../map/select";
 import { getEntityObjectId } from '../utils';
 import { clearHighlight } from '../map/highlight';
-import { addFeaturesToDraw, cancelDraw } from './util';
+import { addFeaturesToDraw, cancelDraw, getGeoJsonBounds, interactiveCreateGeom } from './util';
 // 修改或删除cad底图的实体元素，先通过修改样式的方式，使之在前端不可见。然后最后导出为dwg的时候，再从底图删除。
 // 如果是修改，则把cad的数据通过绘图绘制到前端进行修改
-export const deleteOrModifyCadEntity = async (
+export const editCadEntity = async (
     map: Map, // 地图对象
     draw: IDrawTool, // 绘图对象
     updateMapStyleObj: any, // 通过 createUpdateMapStyleObj 获取
-    isDelete: boolean, // 是否删除，删除或修改
+    editOp: "delete" | "modify" | "copy", //删除或修改或复制
     showInfoFunc?: Function, // 显示信息的函数名
     dlgConfirmInfo?: Function, // 显示确认对话框的函数名
     isRectSel?: boolean, /* 点选还是框选 */
+    promptFunc?: Function, // 显示函数。返回promise<string>
   ) => {
+    const editOpName = editOp == "delete" ? "删除" : (editOp == "modify" ? "修改" : "复制")
     if (showInfoFunc) showInfoFunc(
-      `请选择要${isDelete ? "删除" : "修改"}的CAD实体对象，按右键结束`
+      `请选择要 ${editOpName} 的CAD实体对象，按右键结束`
     );
     cancelDraw(map);
     const hideObjectIds =  getTrackFeatureProperty(draw, "hideEntityObjectIds");
@@ -41,28 +43,31 @@ export const deleteOrModifyCadEntity = async (
       }
     });
     const onOk = async (modifyProps?: Record<string, any>, isModifyText?: Boolean) => {
-      if (map.hasVectorLayer()) {
-        // 几何渲染矢量瓦片
-        await updateMapStyleObj.addHideObjectIds(Array.from(geomIdSet));
-      } else {
-        // 几何渲染栅格瓦片
-        await updateMapStyleObj.addHideObjectIds(Array.from(geomObjectidSet));
+      if (editOp != "copy")
+      {
+        if (map.hasVectorLayer()) {
+          // 几何渲染矢量瓦片
+          await updateMapStyleObj.addHideObjectIds(Array.from(geomIdSet));
+        } else {
+          // 几何渲染栅格瓦片
+          await updateMapStyleObj.addHideObjectIds(Array.from(geomObjectidSet));
+        }
+        // 把要加从cad原图删除的实体id保存到数据埋点的实体上，此实体只是用来记录一些属性，无需显示。等导出为dwg图时才处理。
+        const deleteEntitys = getTrackFeatureProperty(draw, "deleteEntitys") || [];
+        deleteEntitys.push(...Array.from(memoryObjectidSet));
+        const hideEntityObjectIds =
+          getTrackFeatureProperty(draw, "hideEntityObjectIds") || [];
+        hideEntityObjectIds.push(...Array.from(geomObjectidSet));
+        const hideEntityIds = getTrackFeatureProperty(draw, "hideEntityIds") || [];
+        hideEntityIds.push(...Array.from(geomIdSet));
+        setTrackFeatureProperty(draw, {
+          deleteEntitys: Array.from(new Set(deleteEntitys)),
+          hideEntityObjectIds: Array.from(new Set(hideEntityObjectIds)),
+          hideEntityIds: Array.from(new Set(hideEntityIds)),
+        });
       }
-  
-      // 把要加从cad原图删除的实体id保存到数据埋点的实体上，此实体只是用来记录一些属性，无需显示。等导出为dwg图时才处理。
-      const deleteEntitys = getTrackFeatureProperty(draw, "deleteEntitys") || [];
-      deleteEntitys.push(...Array.from(memoryObjectidSet));
-      const hideEntityObjectIds =
-        getTrackFeatureProperty(draw, "hideEntityObjectIds") || [];
-      hideEntityObjectIds.push(...Array.from(geomObjectidSet));
-      const hideEntityIds = getTrackFeatureProperty(draw, "hideEntityIds") || [];
-      hideEntityIds.push(...Array.from(geomObjectidSet));
-      setTrackFeatureProperty(draw, {
-        deleteEntitys: Array.from(new Set(deleteEntitys)),
-        hideEntityObjectIds: Array.from(new Set(hideEntityObjectIds)),
-        hideEntityIds: Array.from(new Set(hideEntityIds)),
-      });
-      if (!isDelete) {
+      
+      if (editOp != "delete") {
         // 如果是修改
         let param = map.getService().currentMapParam() as any;
         let props = {};
@@ -87,18 +92,42 @@ export const deleteOrModifyCadEntity = async (
         if (modifyProps) {
           // 如果是单行文本或多行文本，把属性挂至export上面，这样导出dwg的时候，可以根据属性创建text对象了，否则会把文字变成多边形填充对象
           const features = draw.getAll().features;
+          const idSet = new Set();
           for(let k = oldFeatureLength; k < features.length; k++) {
-            let idx = k - oldFeatureLength;
-            if (!modifyProps[idx]) continue; // 不是文字
+            const id = getEntityObjectId(features[k].properties?.objectid);
+            if (!idSet.has(id)) 
+            {
+              idSet.add(id);
+            }
+            let modiPropIndex = idSet.size - 1;
+            if (!modifyProps[modiPropIndex]) continue; // 不是文字
             const addFeatureId = features[k].id as string;
+            draw.setFeatureProperty(addFeatureId, "disableDirectEdit", true); // 禁止选中后直接编辑坐标
             draw.setFeatureProperty(addFeatureId, "export", {
-              ...modifyProps[idx].export,
+              ...modifyProps[modiPropIndex].export,
               ...addExportRefInfoInText(map, {
                 features: data.features.filter(f => f.properties?.objectid == features[k]?.properties?.objectid)
               })
             })
           }
-          
+        }
+        if (editOp == "copy") {
+          let newFtColl = {
+            type: "FeatureCollection",
+            features: []
+          } as any;
+          const features = draw.getAll().features;
+          for(let k = oldFeatureLength; k < features.length; k++) {
+            newFtColl.features.push(features[k])
+          }
+          draw.delete(newFtColl.features.map((f: any) => f.id))
+          // 如果是复制
+          let res = await interactiveCreateGeom(newFtColl, map, {}, showInfoFunc, {
+            drawInitPixelLength: 0 /*绘制的初始在地图上的像素距离 0 为默认大小*/
+          });
+          if (res) {
+            draw.add(res.feature);
+          }
         }
       }
       clearHighlight(map);
@@ -140,15 +169,21 @@ export const deleteOrModifyCadEntity = async (
       }
       return objectIdProps
     }
-    if (!isDelete && 
+    if (editOp != "delete" && 
       memoryObjectidSet.size == 1 &&
       (selected[0].properties.name == "AcDbText" ||
         selected[0].properties.name == "AcDbMText")
     ) {
-      const content = prompt(
-        "请输入要修改的文字内容",
-        selected[0].properties.text
-      );
+      let content;
+      if (promptFunc) {
+        content = await promptFunc(selected[0].properties.text);
+      } else {
+        content  = prompt(
+          "请输入要修改的文字内容",
+          selected[0].properties.text
+        );
+      }
+      
       if (content == "" || content == null) {
         onCancel();
         return; // 没有改变
@@ -161,7 +196,7 @@ export const deleteOrModifyCadEntity = async (
       if (!dlgConfirmInfo) {
         await onOk();
       } else {
-        let isOk = await dlgConfirmInfo(`你确定要${isDelete ? "删除" : "修改"} 这 ${
+        let isOk = await dlgConfirmInfo(`你确定要${editOpName} 这 ${
             memoryObjectidSet.size
           } 个cad实体对象 ?`);
         if (isOk) {
@@ -181,9 +216,10 @@ export const deleteOrModifyCadEntity = async (
     showInfoFunc?: Function, // 显示信息的函数名
     dlgConfirmInfo?: Function, // 显示确认对话框的函数名
     isRectSel?: boolean, /* 点选还是框选 */
+    promptFunc?: Function, // 显示函数。返回promise<string>
   ) => {
     try {
-      await deleteOrModifyCadEntity(map, draw, updateMapStyleObj, true, showInfoFunc, dlgConfirmInfo, isRectSel);
+      await editCadEntity(map, draw, updateMapStyleObj, "delete", showInfoFunc, dlgConfirmInfo, isRectSel, promptFunc);
     } catch (error) {
       if (showInfoFunc) {
         showInfoFunc(error)
@@ -191,7 +227,7 @@ export const deleteOrModifyCadEntity = async (
     }
   };
   
-  // 删除cad底图的实体元素，先通过修改样式的方式，使之在前端不可见。然后最后导出为dwg的时候，再从底图进行修改
+  // 修改cad底图的实体元素，先通过修改样式的方式，使之在前端不可见。然后最后导出为dwg的时候，再从底图进行修改
   export const modifyCadEntity = async (
     map: Map, // 地图对象
     draw: IDrawTool, // 绘图对象
@@ -199,9 +235,10 @@ export const deleteOrModifyCadEntity = async (
     showInfoFunc?: Function, // 显示信息的函数名
     dlgConfirmInfo?: Function, // 显示确认对话框的函数名
     isRectSel?: boolean, /* 点选还是框选 */
+    promptFunc?: Function, // 显示函数。返回promise<string>
   ) => {
     try {
-      await deleteOrModifyCadEntity(map, draw, updateMapStyleObj, false, showInfoFunc, dlgConfirmInfo, isRectSel);
+      await editCadEntity(map, draw, updateMapStyleObj, "modify", showInfoFunc, dlgConfirmInfo, isRectSel, promptFunc);
     } catch (error) {
       if (showInfoFunc) {
         showInfoFunc(error)
@@ -209,7 +246,25 @@ export const deleteOrModifyCadEntity = async (
     }
   };
   
-
+  // 复制cad底图的实体元素，先通过修改样式的方式，使之在前端不可见。然后最后导出为dwg的时候，再从底图进行修改
+  export const copyCadEntity = async (
+    map: Map, // 地图对象
+    draw: IDrawTool, // 绘图对象
+    updateMapStyleObj: any, // 通过 createUpdateMapStyleObj 获取
+    showInfoFunc?: Function, // 显示信息的函数名
+    dlgConfirmInfo?: Function, // 显示确认对话框的函数名
+    isRectSel?: boolean, /* 点选还是框选 */
+    promptFunc?: Function, // 显示函数。返回promise<string>
+  ) => {
+    try {
+      await editCadEntity(map, draw, updateMapStyleObj, "copy", showInfoFunc, dlgConfirmInfo, isRectSel, promptFunc);
+    } catch (error) {
+      if (showInfoFunc) {
+        showInfoFunc(error)
+      }
+    }
+  };
+  
   
 // 创建一个几何对象
 export const createGeomData = async (
@@ -268,6 +323,23 @@ export const createGeomData = async (
               featureAttr.color = clr; // 颜色
               featureAttr.line_width = ent.lineWidth; // 线宽
             }
+
+            if (ent.geom.geometries[g].type == "Point") {
+              /*
+              // 像素显示改成1个单位
+              featureAttr.radius_inactive = 1;
+              featureAttr.radius_inactive = 1;
+              featureAttr.stroke_radius_active = 0;
+              featureAttr.radius_active = 1;
+              */
+              // 改成起始和终点一样的线
+              ent.geom.geometries[g].type = "LineString";
+              ent.geom.geometries[g].coordinates = [
+                ent.geom.geometries[g].coordinates, // 始点
+                ent.geom.geometries[g].coordinates // 终点
+              ]
+            }
+           
             features.push({
               id: vjmap.RandomID(10),
               type: "Feature",

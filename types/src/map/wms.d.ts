@@ -70,3 +70,4 @@ export declare const base2OverlayCoordinate: (pt: vjmap.GeoPoint, coordinates: {
     x2: number;
     y2: number;
 }[], isSetRotateZero?: boolean, basemapIsWeb?: boolean) => vjmap.GeoPoint;
+export declare const getEpsgRange: (type: "BEIJING54_3" | "BEIJING54_6" | "XIAN80_3" | "XIAN80_6" | "CGCS2000_3" | "CGCS2000_6") => any;
