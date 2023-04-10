@@ -44,7 +44,7 @@ export class LineExtrusionsLayer extends LayerBase {
         geoDatas.push({
           points: map.toLngLat(path),
           properties: {
-            ...geometry.properties,
+            ...features[i].properties,
             path: path, // 把点坐标保存进属性中
           },
         });
