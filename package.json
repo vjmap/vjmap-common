@@ -12,7 +12,7 @@
     "node": ">=14"
   },
   "dependencies": {
-    "vjmap": "^1.0.98"
+    "vjmap": "^1.0.101"
   },
   "devDependencies": {
     "@microsoft/api-extractor": "^7.34.4",

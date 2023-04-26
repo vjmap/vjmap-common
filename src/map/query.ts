@@ -5,22 +5,22 @@ import { cacheStorage } from "../cache";
 export async function queryMapData(
   map: Map,
   queryParam: {
-    condition: string /* 查询 sql 条件 */;
-    bounds: string /* 查询 范围，为空表示不限制 */;
-    isContains: boolean /* 相交或包含 */;
-    coordType: 0 | 1 /* 0 查询位置坐标 1 查询几何坐标 */;
-    clearPropData: boolean /* 是否清空属性数据 */;
+    condition?: string /* 查询 sql 条件 */;
+    bounds?: string /* 查询 范围，为空表示不限制 */;
+    isContains?: boolean /* 相交或包含 */;
+    coordType?: 0 | 1 /* 0 查询位置坐标 1 查询几何坐标 */;
+    clearPropData?: boolean /* 是否清空属性数据 */;
   },
   condition?: Record<string, any>
 ) {
   let svc = map.getService();
   // 先从缓存中去查询。如果缓存中有，则直接从缓存中获取就可能了
   const cacheKey = {
-    ...queryParam,
-    ...condition,
     mapId: svc.currentMapParam()?.mapid,
     version: svc.currentMapParam()?.version,
-    workspace: svc.getCurWorkspaceName()
+    workspace: svc.getCurWorkspaceName(),
+    ...queryParam,
+    ...condition
   };
   let cahceResult = await cacheStorage.getValueByKey(cacheStorage.toStringKey(cacheKey, "query_"), true);
   if (cahceResult) return cahceResult; // 返回缓存结果
@@ -36,7 +36,7 @@ export async function queryMapData(
   // eslint-disable-next-line no-constant-condition
   while (true) {
     const query = await svc.conditionQueryFeature({
-      condition: queryParam.condition, // 只需要写sql语句where后面的条件内容,字段内容请参考文档"服务端条件查询和表达式查询"
+      condition: queryParam.condition ?? '', // 只需要写sql语句where后面的条件内容,字段内容请参考文档"服务端条件查询和表达式查询"
       bounds: bounds, //查找此范围内的实体
       fields: "",
       includegeom: true, // 是否返回几何数据,为了性能问题，realgeom为false时，如果返回条数大于1.只会返回每个实体的外包矩形，如果条数为1的话，会返回此实体的真实geojson；realgeom为true时每条都会返回实体的geojson
@@ -44,7 +44,7 @@ export async function queryMapData(
       isContains: queryParam.isContains, //矩形包含才行,false是相交关系
       beginpos: beginPos, // 记录开始位置
       limit: limit, // 每次查5万条
-      ...condition,
+      ...queryParam,
     });
     if (!query.result) break;
     beginPos += limit; // 开始位置位置挪动
@@ -121,9 +121,11 @@ export function ProcessDataToFeatureCollection(map: Map, res: any /* 后台查�
           ent.points || ent.positon || ent.location || ent.origin || ent.center;
         if (coord) {
           const pts = coord.split(";");
-          const points = pts.map((p: string) =>
-            map.toLngLat(vjmap.GeoPoint.fromString(p))
-          );
+          const points = [];
+          for(let p of pts) {
+            if (p.indexOf(",") > 0)
+            points.push(map.toLngLat(vjmap.GeoPoint.fromString(p)))
+          }
 
           if (points.length == 1) {
             const feature = {

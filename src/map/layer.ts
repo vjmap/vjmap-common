@@ -27,7 +27,6 @@ export const switchCadLayers = async (map: Map, layers: {name: string; isOff: bo
 
 // 矢量瓦片切换图层 onLayers 要显示的图层名称数组
 export const switchVectorLayers = (map: Map, onLayers: string[]) => {
-  debugger
   // 通过图层名称来查找图层id
   const getLayerIdByName = (name: string) => {
     return svc.getMapLayers().findIndex(layer => layer.name === name)

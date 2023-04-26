@@ -269,41 +269,55 @@ export const editCadEntity = async (
 // 创建一个几何对象
 export const createGeomData = async (
     map: Map, // 地图对象
-    entities: any = [], // 实体数组
+    entities: any = [], // 实体数组 或直接是 DbDocument 对象
     docMapBounds: any = null, // 文档范围
     environment: any = null, // 环境参数
     linetypes: any = null, // 线型
-    dbFrom: any = null // 数据来源
+    dbFrom: any = null, // 数据来源
+    asFeatureCollection?: boolean // 查询的是一个实体的做为一个集合对象
   ) => {
-    let doc = new vjmap.DbDocument();
-    if (environment) {
-      doc.environment = environment; // 文档环境
-    }
-    if (linetypes) {
-      doc.linetypes = linetypes; // 线型定义
-    }
-    let param = map.getService().currentMapParam() as any;
-    if (!docMapBounds) {
-      // 如果文档范围为空，则使用当前地图
-      if (!dbFrom) {
-        doc.from = `${param.mapid}/${param.version}`; // 从当前图
-      } else {
-        doc.from = typeof(dbFrom) == "string" ? dbFrom : `${dbFrom.mapid}/${dbFrom.version}`; // 从指定的图
+    let doc: any;
+    let mapBounds: any;
+    if (Array.isArray(entities)) {
+      doc  = new vjmap.DbDocument();
+      if (environment) {
+        doc.environment = environment; // 文档环境
       }
-      doc.pickEntitys = entities.map((e: any) => e.objectid);
-    } else {
-      if (dbFrom) {
-        doc.from = dbFrom; // 从指定的图
+      if (linetypes) {
+        doc.linetypes = linetypes; // 线型定义
+      }
+      let param = map.getService().currentMapParam() as any;
+      if (!docMapBounds) {
+        // 如果文档范围为空，则使用当前地图
+        if (!dbFrom) {
+          if (param.mapid) {
+            doc.from = `${param.mapid}/${param.version}`; // 从当前图
+          }
+        } else {
+          doc.from = typeof(dbFrom) == "string" ? dbFrom : `${dbFrom.mapid}/${dbFrom.version}`; // 从指定的图
+        }
         doc.pickEntitys = entities.map((e: any) => e.objectid);
+      } else {
+        if (dbFrom) {
+          doc.from = dbFrom; // 从指定的图
+          doc.pickEntitys = entities.map((e: any) => e.objectid);
+        }
       }
+      
+      doc.appendEntity(entities);
+      mapBounds = docMapBounds ? docMapBounds : param.bounds.toArray(); // 如果没有输入文档范围，则使用当前地图的范围
+      if (!doc.from && !docMapBounds) {
+          mapBounds = undefined; // 如果没有范围
+      }
+    } else {
+      doc = entities; // 直接是 DbDocument 对象
+      mapBounds = docMapBounds;
     }
     
-    doc.appendEntity(entities);
-  
     let svc = map.getService();
     let res = await svc.cmdCreateEntitiesGeomData({
       filedoc: doc.toDoc(),
-      mapBounds: docMapBounds ? docMapBounds : param.bounds.toArray(), // 如果没有输入文档范围，则使用当前地图的范围
+      mapBounds: mapBounds
     });
     if (res.error) {
       throw res.error;
@@ -313,8 +327,7 @@ export const createGeomData = async (
       for (let ent of res.result) {
         if (ent.geom && ent.geom.geometries) {
           let clr = map.entColorToHtmlColor(ent.color); // 实体颜色转html颜色
-          for (let g = 0; g < ent.geom.geometries.length; g++) {
-            let featureAttr: any = {};
+          let featureAttr: any = {};
             // 因为要组合成一个组合实体，所以线和多边形的颜色得区分
             if (ent.isPolygon) {
               featureAttr.color = clr; // 填充色，只对多边形有效
@@ -324,14 +337,8 @@ export const createGeomData = async (
               featureAttr.line_width = ent.lineWidth; // 线宽
             }
 
+          for (let g = 0; g < ent.geom.geometries.length; g++) {
             if (ent.geom.geometries[g].type == "Point") {
-              /*
-              // 像素显示改成1个单位
-              featureAttr.radius_inactive = 1;
-              featureAttr.radius_inactive = 1;
-              featureAttr.stroke_radius_active = 0;
-              featureAttr.radius_active = 1;
-              */
               // 改成起始和终点一样的线
               ent.geom.geometries[g].type = "LineString";
               ent.geom.geometries[g].coordinates = [
@@ -339,18 +346,50 @@ export const createGeomData = async (
                 ent.geom.geometries[g].coordinates // 终点
               ]
             }
-           
-            features.push({
-              id: vjmap.RandomID(10),
-              type: "Feature",
-              properties: {
-                objectid: ent.objectid,
-                opacity: ent.alpha / 255,
-                ...featureAttr,
-              },
-              geometry: ent.geom.geometries[g],
-            });
           }
+          if (asFeatureCollection) {
+            let ft = {
+                id: ent.id,
+                type: "Feature",
+                properties: {
+                    objectid: ent.objectid,
+                    opacity: ent.alpha / 255,
+                    ...featureAttr,
+                },
+            }
+            if (ent.geom.geometries.length == 1) {
+                ft = {
+                    ...ft,
+                     // @ts-ignore
+                    geometry: ent.geom.geometries[0],
+                };
+            } else {
+                ft = {
+                    ...ft,
+                     // @ts-ignore
+                    geometry: {
+                        geometries: ent.geom.geometries,
+                        type: "GeometryCollection"
+                    },
+                };
+            }
+            // @ts-ignore
+            features.push(ft);
+          } else {
+            for (let g = 0; g < ent.geom.geometries.length; g++) {
+              features.push({
+                id: vjmap.RandomID(10),
+                type: "Feature",
+                properties: {
+                  objectid: ent.objectid,
+                  opacity: ent.alpha / 255,
+                  ...featureAttr,
+                },
+                geometry: ent.geom.geometries[g],
+              });
+            }
+          }
+          
         }
       }
     }

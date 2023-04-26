@@ -57,13 +57,12 @@ export declare const convertArrayToGeoJson: (value: Array<[number, number]>) => 
 
 export declare const copyCadEntity: (map: Map_2, draw: IDrawTool, updateMapStyleObj: any, showInfoFunc?: Function, dlgConfirmInfo?: Function, isRectSel?: boolean, promptFunc?: Function) => Promise<void>;
 
-export declare const createGeomData: (map: Map_2, entities?: any, docMapBounds?: any, environment?: any, linetypes?: any, dbFrom?: any) => Promise<{
+export declare const createGeomData: (map: Map_2, entities?: any, docMapBounds?: any, environment?: any, linetypes?: any, dbFrom?: any, asFeatureCollection?: boolean) => Promise<{
     type: string;
     features: {
-        id: string;
+        id: any;
         type: string;
         properties: any;
-        geometry: any;
     }[];
 }>;
 
@@ -183,6 +182,24 @@ export declare const getMapSnapPoints: (map: Map_2, snapObj: any, snapQueryLimit
 
 export declare const getPointOnePixelDrawStyleOption: () => any;
 
+export declare const getQueryGeomData: (map: Map_2, queryParam: any, propData?: Record<string, any>) => Promise<{
+    type: string;
+    features: {
+        id: string;
+        type: string;
+        properties: {
+            objectid: string;
+            color: string;
+            alpha: number;
+            lineWidth: number;
+            name: any;
+            isline: any;
+            layerindex: any;
+        };
+        geometry: any;
+    }[];
+}>;
+
 export declare const getShardsTileUrl: (tileUrl: string, map?: Map_2) => string[];
 
 export declare const getTileShards: (tileUrl: string) => {
@@ -223,6 +240,7 @@ export declare const interactiveCreateGeom: (data: any, map: Map_2, options?: Re
     drawInitPixelLength?: number;
     tempLineColor?: string;
     baseAlign?: "leftBottom" | "center" | "leftTop";
+    keepGeoSize?: boolean;
 }) => Promise<{
     feature: any;
     rotation: number;
@@ -470,11 +488,11 @@ export declare const providerLayers: Record<string, typeof LayerBase>;
 export declare type providerLayerTypes = keyof typeof providerLayers;
 
 export declare function queryMapData(map: Map_2, queryParam: {
-    condition: string;
-    bounds: string;
-    isContains: boolean;
-    coordType: 0 | 1;
-    clearPropData: boolean;
+    condition?: string;
+    bounds?: string;
+    isContains?: boolean;
+    coordType?: 0 | 1;
+    clearPropData?: boolean;
 }, condition?: Record<string, any>): Promise<any>;
 
 export declare function requestChangeData(map: Map_2, param: {
@@ -671,6 +689,7 @@ declare namespace vjcommon {
         createLineTypePolyline,
         createLineTypeCurve,
         createHatch,
+        getQueryGeomData,
         createOutSymbol,
         drawText,
         addFeaturesToDraw,

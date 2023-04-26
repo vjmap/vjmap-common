@@ -297,13 +297,10 @@ export const exportDwg = async (map: Map,  draw: IDrawTool, newMapId?: string) =
     doc.appendEntity(addEntitys); // 把要绘制的实体加上
   
     // 创建一个新的服务类，否则会影响之前的服务对象
-    let service = new vjmap.Service(svc.serverUrl, svc.accessToken);
-    if (svc.getCurWorkspaceName()) {
-        service.switchWorkspace(svc.getCurWorkspaceName())
-    }
+    let service = svc.clone();
     // js代码
     let res = await service.updateMap({
-        mapid: newMapId ? newMapId : "draw" + param?.mapid,
+        mapid: newMapId ? newMapId : vjmap.getTempMapId(60, true), // 绘制的导出的用临时图形吧，临时图形不浏览情况下过期自动删除时间，单位分钟。默认30,
         filedoc: doc.toDoc(),
         mapopenway: vjmap.MapOpenWay.Memory,
         style: {

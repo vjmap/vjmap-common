@@ -469,7 +469,6 @@ export const getGeoJsonBounds = (data: any) => {
   return bounds;
 };
 
-
 // 交互式创建CAD几何对象
 export const interactiveCreateGeom = async (
   data: any,
@@ -482,6 +481,7 @@ export const interactiveCreateGeom = async (
     drawInitPixelLength?: number /*绘制的初始在地图上的像素距离 */;
     tempLineColor?: string /*绘制临时线的颜色 */;
     baseAlign?: "leftBottom" | "center" | "leftTop" /*绘制的基点的位置方向 */;
+    keepGeoSize?: boolean /*保持原来的大小，不进行缩放至像素距离 */;
   }
 ) => {
   const tempDraw = map.createDrawLayer(); // 创建一个临时的绘图图层
@@ -494,33 +494,41 @@ export const interactiveCreateGeom = async (
   try {
     // 获取数据范围
     let dataBounds = getGeoJsonBounds(data);
-    //  先获取地图的中心点
-    let basePt = map.fromLngLat(map.getCenter());
-    // 要生成的像素大小
-    let length = map.pixelToGeoLength(
-      param.drawInitPixelLength ?? 100,
-      map.getZoom()
-    );
-    let dataGeoBounds = map.fromLngLat(dataBounds);
-    let scalex = length / dataGeoBounds.width(); // 缩放的比例
-    let scaley = length / dataGeoBounds.height(); // 缩放的比例
-    let dblScale = Math.min(scalex, scaley);
-    if (vjmap.isZero(dblScale)) dblScale = 1.0;
+    let geoDataBounds: any;
+    let drawData;
+    if (param.keepGeoSize !== true) {
+      //  先获取地图的中心点
+      let basePt = map.fromLngLat(map.getCenter());
+      // 要生成的像素大小
+      let length = map.pixelToGeoLength(
+        param.drawInitPixelLength ?? 100,
+        map.getZoom()
+      );
+      let dataGeoBounds = map.fromLngLat(dataBounds);
+      let scalex = length / dataGeoBounds.width(); // 缩放的比例
+      let scaley = length / dataGeoBounds.height(); // 缩放的比例
+      let dblScale = Math.min(scalex, scaley);
+      if (vjmap.isZero(dblScale)) dblScale = 1.0;
 
-    let basePoint = dataBounds.center();
-    if (param.baseAlign == "leftBottom") {
-      basePoint = dataBounds.min;
-    } else if (param.baseAlign == "leftTop") {
-      basePoint = vjmap.geoPoint([dataBounds.min.x, dataBounds.max.y]);
+      let basePoint = dataBounds.center();
+      if (param.baseAlign == "leftBottom") {
+        basePoint = dataBounds.min;
+      } else if (param.baseAlign == "leftTop") {
+        basePoint = vjmap.geoPoint([dataBounds.min.x, dataBounds.max.y]);
+      }
+      drawData = transformGeoJsonData(
+        map,
+        vjmap.cloneDeep(data),
+        map.fromLngLat(basePoint),
+        basePt,
+        dblScale
+      );
+      
+    } else {
+      // 把数据增加至临时绘图层
+      drawData = data;
     }
-    let drawData = transformGeoJsonData(
-      map,
-      vjmap.cloneDeep(data),
-      map.fromLngLat(basePoint),
-      basePt,
-      dblScale
-    );
-    let geoDataBounds = map.fromLngLat(getGeoJsonBounds(drawData)); // 获取当前绘制的数据几何范围
+    geoDataBounds = map.fromLngLat(getGeoJsonBounds(drawData)); // 获取当前绘制的数据几何范围
     let geoCenter = geoDataBounds.center(); // 获取当前绘制的数据几何中心点
     if (param.baseAlign == "leftBottom") {
       geoCenter = geoDataBounds.min;
@@ -666,11 +674,11 @@ export const interactiveCreateGeom = async (
     map.removeDrawLayer(tempDraw);
     return {
       feature: drawFeatures,
-      rotation: angle
+      rotation: angle,
     };
   } catch (e: any) {
     cancelDraw();
-    if (showInfoFunc) showInfoFunc(e?.message ?? e)
+    if (showInfoFunc) showInfoFunc(e?.message ?? e);
   }
 };
 
@@ -816,9 +824,6 @@ export const createLineTypePolyline = async (
   }
 };
 
-
-
-
 const throttle = (method: Function, delay: number, duration: number) => {
   let timer: any = null;
   let begin = new Date();
@@ -936,7 +941,7 @@ export const createHatch = async (
 };
 
 // 从后台查询几何数据
-const getQueryGeomData = async (
+export const getQueryGeomData = async (
   map: Map,
   queryParam: any,
   propData?: Record<string, any>
@@ -1032,7 +1037,7 @@ export const drawText = async (
 ) => {
   drawProperty = drawProperty || {};
   if (!drawProperty.text) return;
-  let docBounds:  [number, number, number, number] = [-1000, -1000, 1000, 1000]; // 文档坐标范围，可以根据需要自己定，但要保证是正方形。保证下面绘制的实体在此范围内
+  let docBounds: [number, number, number, number] = [-1000, -1000, 1000, 1000]; // 文档坐标范围，可以根据需要自己定，但要保证是正方形。保证下面绘制的实体在此范围内
 
   let entities = [];
   let textAttr: Record<string, any> = {
@@ -1042,7 +1047,7 @@ export const drawText = async (
     horizontalMode: vjmap.DbTextHorzMode.kTextLeft,
     verticalMode: vjmap.DbTextVertMode.kTextBottom,
     height: 10,
-  }
+  };
   let text = new vjmap.DbText(textAttr);
   entities.push(text);
 
@@ -1050,8 +1055,8 @@ export const drawText = async (
   const docProj = new vjmap.GeoProjection(vjmap.GeoBounds.fromArray(docBounds));
   // 需要取数据上的二个点做为参考点，如果以后要导出dwg的时候，创建文字的时候，计算旋转和缩放系数，用来确定文字的位置和高度属性
   let props = addExportRefInfoInText(docProj, data);
-  textAttr = {...textAttr, ...props};
- 
+  textAttr = { ...textAttr, ...props };
+
   let res = await interactiveCreateGeom(data, map, options, showInfoFunc, {
     baseAlign: "leftBottom",
     drawInitPixelLength: drawProperty.height ?? 50,
@@ -1064,24 +1069,47 @@ export const drawText = async (
   draw.add(res.feature); // 加至地图当前绘制的图层中
 };
 
-
-
-  // 增加绘图对象，并组合成一个实体
-  export const addFeaturesToDraw = (data: any, drawLayer: any, combineInObject?: boolean /*按objectid合成一个组*/) => {
-    const objectIdSet = new Set();
-    if (combineInObject) {
-      // 按objectid合成一个组
-      data.features.forEach((feature: any) => {
-        if (feature && feature.properties && feature.properties.objectid) {
-          objectIdSet.add(feature.properties.objectid);
-        }
-      });
-    }
-    if (!combineInObject || objectIdSet.size == 0) {
+// 增加绘图对象，并组合成一个实体
+export const addFeaturesToDraw = (
+  data: any,
+  drawLayer: any,
+  combineInObject?: boolean /*按objectid合成一个组*/
+) => {
+  const objectIdSet = new Set();
+  if (combineInObject) {
+    // 按objectid合成一个组
+    data.features.forEach((feature: any) => {
+      if (feature && feature.properties && feature.properties.objectid) {
+        objectIdSet.add(feature.properties.objectid);
+      }
+    });
+  }
+  if (!combineInObject || objectIdSet.size == 0) {
+    let addFeatureIds: any = [];
+    data.features.forEach((feature: any) => {
+      addFeatureIds.push(...drawLayer.add(feature));
+    });
+    // 先选中此实体
+    drawLayer.changeMode("simple_select", { featureIds: addFeatureIds });
+    // 然后组合成一个
+    try {
+      // 忽略合并中的错误
+      drawLayer.combineFeatures();
+      // @ts-ignore
+    } catch (error) {}
+    return addFeatureIds.length;
+  } else {
+    // 按objectid合成一个组
+    // 获取所有的objectid
+    let oldSize = drawLayer.getAll().features.length;
+    for (let objectid of objectIdSet) {
       let addFeatureIds: any = [];
       data.features.forEach((feature: any) => {
-        addFeatureIds.push(...drawLayer.add(feature));
+        if (feature.properties.objectid == objectid) {
+          addFeatureIds.push(...drawLayer.add(feature));
+        }
       });
+      if (addFeatureIds.length == 0) continue;
       // 先选中此实体
       drawLayer.changeMode("simple_select", { featureIds: addFeatureIds });
       // 然后组合成一个
@@ -1089,62 +1117,43 @@ export const drawText = async (
         // 忽略合并中的错误
         drawLayer.combineFeatures();
         // @ts-ignore
-      } catch (error) {
-        
-      }
-      return addFeatureIds.length;
-    } else {
-      // 按objectid合成一个组
-      // 获取所有的objectid
-      let oldSize = drawLayer.getAll().features.length;
-      for(let objectid of objectIdSet) {
-        let addFeatureIds: any = [];
-        data.features.forEach((feature: any) => {
-          if (feature.properties.objectid == objectid) {
-            addFeatureIds.push(...drawLayer.add(feature));
-          }
-        });
-        if (addFeatureIds.length == 0) continue;
-        // 先选中此实体
-        drawLayer.changeMode("simple_select", { featureIds: addFeatureIds });
-        // 然后组合成一个
-        try {
-          // 忽略合并中的错误
-          drawLayer.combineFeatures();
-          // @ts-ignore
-        } catch (error) {
-          
-        }
-      }
-      let featureIds: any = [];
-      let drawFeatures = drawLayer.getAll().features;
-      for(let k = oldSize; k < drawFeatures.length; k++) {
-        featureIds.push(drawFeatures[k].id)
-      }
-      drawLayer.changeMode("simple_select", { featureIds: featureIds });
-      return objectIdSet.size;
+      } catch (error) {}
     }
-  };
-
-  // 获取点的半径为1个像素的缺省绘制样式。
-  export const getPointOnePixelDrawStyleOption = () => {
-    const opts = vjmap.Draw.defaultOptions();
-    // 修改默认样式，把点的半径改成1，没有边框，默认为5
-    let pointIdx = opts.styles.findIndex((s: any) => s.id === "gl-draw-point-point-stroke-inactive");
-    if (pointIdx >= 0) {
-        opts.styles[pointIdx]['paint']['circle-radius'][3][3] = 0
+    let featureIds: any = [];
+    let drawFeatures = drawLayer.getAll().features;
+    for (let k = oldSize; k < drawFeatures.length; k++) {
+      featureIds.push(drawFeatures[k].id);
     }
-    pointIdx = opts.styles.findIndex((s: any) => s.id === "gl-draw-point-inactive");
-    if (pointIdx >= 0) {
-        opts.styles[pointIdx]['paint']['circle-radius'][3][3] = 1
-    }
-    pointIdx = opts.styles.findIndex((s: any) => s.id === "gl-draw-point-stroke-active");
-    if (pointIdx >= 0) {
-        opts.styles[pointIdx]['paint']['circle-radius'][3] = 0
-    }
-    pointIdx = opts.styles.findIndex((s: any) => s.id === "gl-draw-point-active");
-    if (pointIdx >= 0) {
-        opts.styles[pointIdx]['paint']['circle-radius'][3] = 1
-    }
-    return opts;
+    drawLayer.changeMode("simple_select", { featureIds: featureIds });
+    return objectIdSet.size;
   }
+};
+
+// 获取点的半径为1个像素的缺省绘制样式。
+export const getPointOnePixelDrawStyleOption = () => {
+  const opts = vjmap.Draw.defaultOptions();
+  // 修改默认样式，把点的半径改成1，没有边框，默认为5
+  let pointIdx = opts.styles.findIndex(
+    (s: any) => s.id === "gl-draw-point-point-stroke-inactive"
+  );
+  if (pointIdx >= 0) {
+    opts.styles[pointIdx]["paint"]["circle-radius"][3][3] = 0;
+  }
+  pointIdx = opts.styles.findIndex(
+    (s: any) => s.id === "gl-draw-point-inactive"
+  );
+  if (pointIdx >= 0) {
+    opts.styles[pointIdx]["paint"]["circle-radius"][3][3] = 1;
+  }
+  pointIdx = opts.styles.findIndex(
+    (s: any) => s.id === "gl-draw-point-stroke-active"
+  );
+  if (pointIdx >= 0) {
+    opts.styles[pointIdx]["paint"]["circle-radius"][3] = 0;
+  }
+  pointIdx = opts.styles.findIndex((s: any) => s.id === "gl-draw-point-active");
+  if (pointIdx >= 0) {
+    opts.styles[pointIdx]["paint"]["circle-radius"][3] = 1;
+  }
+  return opts;
+};
