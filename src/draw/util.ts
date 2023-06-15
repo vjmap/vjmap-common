@@ -1,4 +1,4 @@
-import vjmap, { IDrawTool } from "vjmap";
+import vjmap, { GeoPoint, IDrawTool } from "vjmap";
 import type { Map } from "vjmap";
 import { exportDwg, addExportRefInfoInText } from "./export";
 import { transformGeoJsonData } from "../utils";
@@ -482,6 +482,8 @@ export const interactiveCreateGeom = async (
     tempLineColor?: string /*绘制临时线的颜色 */;
     baseAlign?: "leftBottom" | "center" | "leftTop" /*绘制的基点的位置方向 */;
     keepGeoSize?: boolean /*保持原来的大小，不进行缩放至像素距离 */;
+    position?: GeoPoint /* 如果指定了位置，则不需交互拾取位置  */
+    unCombineFeature?: boolean /*  不组合成一个新实体 */
   }
 ) => {
   const tempDraw = map.createDrawLayer(); // 创建一个临时的绘图图层
@@ -536,49 +538,68 @@ export const interactiveCreateGeom = async (
       geoCenter = vjmap.geoPoint([geoDataBounds.min.x, geoDataBounds.max.y]);
     }
     // 把数据增加至临时绘图层
-    addFeaturesToDraw(drawData, tempDraw);
-
-    if (showInfoFunc) {
-      showInfoFunc("请移动鼠标至指定位置点击进行绘制");
+    if (param.unCombineFeature) {
+      tempDraw.set(drawData);
+    } else {
+      addFeaturesToDraw(drawData, tempDraw);
     }
-
-    // 设置地图正在交互
-    map.setIsInteracting(true);
-
+    
     let oldData = vjmap.cloneDeep(tempDraw.getAll()); // 复制下以前的数据
-
-    let drawDestPt = await vjmap.Draw.actionDrawPoint(map, {
-      ...options,
-      updatecoordinate: (e: any) => {
-        if (!e.lnglat) return;
-        tempDraw.deleteAll();
-        const co = map.fromLngLat(e.lnglat);
-        let drawData = transformGeoJsonData(
-          map,
-          vjmap.cloneDeep(oldData),
-          geoCenter,
-          co
-        );
-        tempDraw.set(drawData); // 设置成新的数据
-      },
-    });
-    if (drawDestPt.cancel) {
-      cancelDraw();
-      return; // 取消操作
+    let destPt: any;
+    if (param.position) {
+      tempDraw.deleteAll();
+      const co = param.position;
+      let drawData = transformGeoJsonData(
+        map,
+        vjmap.cloneDeep(oldData),
+        geoCenter,
+        co
+      );
+      tempDraw.set(drawData); // 设置成新的数据
+      destPt = param.position;
+    } else {
+      if (showInfoFunc) {
+        showInfoFunc("请移动鼠标至指定位置点击进行绘制");
+      }
+  
+      // 设置地图正在交互
+      map.setIsInteracting(true);
+  
+      let drawDestPt = await vjmap.Draw.actionDrawPoint(map, {
+        ...options,
+        updatecoordinate: (e: any) => {
+          if (!e.lnglat) return;
+          tempDraw.deleteAll();
+          const co = map.fromLngLat(e.lnglat);
+          let drawData = transformGeoJsonData(
+            map,
+            vjmap.cloneDeep(oldData),
+            geoCenter,
+            co
+          );
+          tempDraw.set(drawData); // 设置成新的数据
+        },
+      });
+      if (drawDestPt.cancel) {
+        cancelDraw();
+        return; // 取消操作
+      }
+      destPt = map.fromLngLat(drawDestPt.features[0].geometry.coordinates);
     }
-    // 已经获取了要绘制到哪的目的地坐标
-    let destPt = map.fromLngLat(drawDestPt.features[0].geometry.coordinates);
-
+   
     // 下面获取缩放系数
     // 可以做一条辅助线显示
-    let tempLine = new vjmap.Polyline({
-      data: map.toLngLat([destPt, destPt]),
-      lineColor: param.tempLineColor ?? "yellow",
-      lineWidth: 1,
-      lineDasharray: [2, 2],
-    });
-    tempLine.addTo(map);
-
+    let tempLine: any;
+    if (!param.disableScale || !param.disableRotate) {
+      tempLine = new vjmap.Polyline({
+        data: map.toLngLat([destPt, destPt]),
+        lineColor: param.tempLineColor ?? "yellow",
+        lineWidth: 1,
+        lineDasharray: [2, 2],
+      });
+      tempLine.addTo(map);
+    }
+   
     let scale = 1.0;
     if (!param.disableScale) {
       let drawScalePoint = await vjmap.Draw.actionDrawPoint(map, {
@@ -794,30 +815,52 @@ export const createLineTypePolyline = async (
   param?: Record<string, any>
 ) => {
   param = param || {};
+  let coordinate;
 
-  // 先交互式绘制线段
-  let drawLine = await vjmap.Draw.actionDrawLineSting(map, {
-    ...options,
-  });
-  if (drawLine.cancel) {
-    return; // 取消了
+  // 直接指定坐标
+  if (param.coordinates) {
+    coordinate = param.coordinates;
+  } else {
+    // 先交互式绘制线段
+    let drawLine = await vjmap.Draw.actionDrawLineSting(map, {
+      ...options,
+    });
+    if (drawLine.cancel) {
+      return; // 取消了
+    }
+    coordinate = map.fromLngLat(drawLine.features[0].geometry.coordinates);
   }
-  let coordinate = map.fromLngLat(drawLine.features[0].geometry.coordinates);
-  let dbEnt = new vjmap.DbPolyline();
+  let dbEnt: any = {};
   // @ts-ignore
-  dbEnt.objectid = param.objectid ?? "40D"; // 表示要修改此实体 sys_symbols图中的objectid
-  dbEnt.color = vjmap.htmlColorToEntColor(
-    drawProperty?.color ?? vjmap.randomColor()
-  );
-  dbEnt.linetypeScale = param.linetypeScale ?? 100; // 填充比例
-  // 如果要修改坐标，请用下面的代码，此示例演示还是用以前的坐标数据
-  dbEnt.points = coordinate.map((p: any) => {
-    return [p.x, p.y];
-  });
+  dbEnt.objectid = param.objectid; // 表示要修改此实体 sys_symbols图中的objectid
+  if (drawProperty?.color) {
+    dbEnt.color = vjmap.htmlColorToEntColor(
+      drawProperty?.color
+    );
+  }
+  if (param.linetypeScale ) {
+    dbEnt.linetypeScale = param.linetypeScale
+  }
+ 
+  if (param.isCurve) {
+    if (param.curveUseControlPoints) {
+      dbEnt.controlPoints = coordinate.map((p: any) => {
+        return [p.x, p.y];
+      }); // 拟合点 用fitPoints; 控制点 用 controlPoints
+    } else {
+      dbEnt.fitPoints = coordinate.map((p: any) => {
+        return [p.x, p.y];
+      }); // 拟合点 用fitPoints; 控制点 用 controlPoints
+    }
+  } else {
+    dbEnt.points = coordinate.map((p: any) => {
+      return [p.x, p.y];
+    });
+  }
 
   if (dbEnt) {
     let data = await createGeomData(map, [dbEnt], null, null, null, {
-      mapid: param.mapid ?? "sys_symbols", // 上面的要修改的实体，来源于此图id
+      mapid: param.mapid, // 上面的要修改的实体，来源于此图id
       version: param.version ?? "v1",
     });
     addFeaturesToDraw(data, draw);
@@ -910,22 +953,36 @@ export const createHatch = async (
   param?: Record<string, any>
 ) => {
   param = param ?? {};
-  let drawPolygon = await vjmap.Draw.actionDrawPolygon(map, {
-    ...options,
-  });
-  if (drawPolygon.cancel) {
-    return; // 取消了
+  let coordinate;
+  if (param.coordinates) // 直接指定坐标 
+  {
+    coordinate = param.coordinates;
   }
-  let coordinate = map.fromLngLat(
-    drawPolygon.features[0].geometry.coordinates[0]
-  );
+  else {
+    let drawPolygon = await vjmap.Draw.actionDrawPolygon(map, {
+      ...options,
+    });
+    if (drawPolygon.cancel) {
+      return; // 取消了
+    }
+  
+    coordinate  = map.fromLngLat(
+      drawPolygon.features[0].geometry.coordinates[0]
+    );
+  }
+  
   let dbEnt = new vjmap.DbHatch();
   // @ts-ignore
   dbEnt.objectid = param.objectid ?? "42F"; // 表示要修改此实体 sys_symbols图中的objectid
-  dbEnt.color = vjmap.htmlColorToEntColor(
-    drawProperty?.color ?? vjmap.randomColor()
-  );
-  dbEnt.patternScale = param.patternScale ?? 400; // 填充比例
+  if (drawProperty?.color) {
+    dbEnt.color = vjmap.htmlColorToEntColor(
+      drawProperty?.color
+    );
+  }
+  if (param.patternScale) {
+    dbEnt.patternScale = param.patternScale; // 填充比例
+  }
+ 
   // 如果要修改坐标，请用下面的代码，此示例演示还是用以前的坐标数据
   dbEnt.points = coordinate.map((p: any) => {
     return [p.x, p.y];
@@ -967,6 +1024,7 @@ export const getQueryGeomData = async (
               objectid: ent.objectid + "_" + g,
               color: clr,
               alpha: ent.alpha / 255,
+              opacity: ent.alpha / 255,
               lineWidth: 1,
               name: ent.name,
               isline: ent.isline,
@@ -1016,14 +1074,33 @@ export const createOutSymbol = async (
   );
 
   let res = await interactiveCreateGeom(data, map, options, showInfoFunc, {
+    ...drawProperty,
     baseAlign: "center",
+    position: param.position
   });
   if (!res) return;
-  addFeaturesToDraw(res.feature, draw);
-  let features = draw.getAll().features;
-  let addFeatureID = features[features.length - 1].id as string;
-  for (let prop in drawProperty) {
-    draw.setFeatureProperty(addFeatureID, prop, drawProperty[prop]);
+  let innerProps = new Set(["disableScale", "disableRotate", "drawInitPixelLength", "tempLineColor", "baseAlign", "keepGeoSize", "position", "unCombineFeature"])
+  if (drawProperty?.unCombineFeature) {
+    let ids: any = []
+    for(let i = 0; i < res.feature.features.length; i++) {
+      let addFeatureID = res.feature.features[i].id as string;
+      ids.push(addFeatureID);
+      draw.add(res.feature.features[i]);
+      for (let prop in drawProperty) {
+        if (innerProps.has(prop)) continue;
+        draw.setFeatureProperty(addFeatureID, prop, drawProperty[prop]);
+      }
+    }
+    return ids;
+  } else {
+    addFeaturesToDraw(res.feature, draw);
+    let features = draw.getAll().features;
+    let addFeatureID = features[features.length - 1].id as string;
+    for (let prop in drawProperty) {
+      if (innerProps.has(prop)) continue;
+      draw.setFeatureProperty(addFeatureID, prop, drawProperty[prop]);
+    }
+    return [addFeatureID]
   }
 };
 
@@ -1058,6 +1135,7 @@ export const drawText = async (
   textAttr = { ...textAttr, ...props };
 
   let res = await interactiveCreateGeom(data, map, options, showInfoFunc, {
+    ...drawProperty,
     baseAlign: "leftBottom",
     drawInitPixelLength: drawProperty.height ?? 50,
     disableRotate: drawProperty?.disableRotate,

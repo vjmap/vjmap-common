@@ -13,6 +13,13 @@ export class DrawLayer extends LayerBase {
         super.addLayer(map, mapLayer);
         this.sourceID = mapLayer.sourceId;
         let featureCollection = map.getSourceData(mapLayer.sourceId);
+        if (mapLayer.entColorToHtmlColor && featureCollection && featureCollection.features) {
+            featureCollection.features.forEach((f: any) => {
+                if (f.properties && typeof f.properties.color == "number") {
+                    f.properties.color = map.entColorToHtmlColor(f.properties.color);
+                }
+            })
+        }
         const opts = vjmap.cloneDeep(vjmap.Draw.defaultOptions()) as any;
         opts.isActionDrawMode = true; // 按钮都隐藏，界面用自己的
         // @ts-ignore

@@ -10,6 +10,7 @@ export async function queryMapData(
     isContains?: boolean /* 相交或包含 */;
     coordType?: 0 | 1 /* 0 查询位置坐标 1 查询几何坐标 */;
     clearPropData?: boolean /* 是否清空属性数据 */;
+    disableCacheData?: boolean /* 是否禁用本地缓存数据 */;
   },
   condition?: Record<string, any>
 ) {
@@ -19,11 +20,14 @@ export async function queryMapData(
     mapId: svc.currentMapParam()?.mapid,
     version: svc.currentMapParam()?.version,
     workspace: svc.getCurWorkspaceName(),
+    layername: svc.currentMapParam()?.layer,
     ...queryParam,
     ...condition
   };
-  let cahceResult = await cacheStorage.getValueByKey(cacheStorage.toStringKey(cacheKey, "query_"), true);
-  if (cahceResult) return cahceResult; // 返回缓存结果
+  if (queryParam.disableCacheData === true) {
+    let cahceResult = await cacheStorage.getValueByKey(cacheStorage.toStringKey(cacheKey, "query_"), true);
+    if (cahceResult) return cahceResult; // 返回缓存结果
+  }
   let res: any;
   const result = [];
   let beginPos = 0; // 记录查询开始位置
@@ -39,8 +43,8 @@ export async function queryMapData(
       condition: queryParam.condition ?? '', // 只需要写sql语句where后面的条件内容,字段内容请参考文档"服务端条件查询和表达式查询"
       bounds: bounds, //查找此范围内的实体
       fields: "",
-      includegeom: true, // 是否返回几何数据,为了性能问题，realgeom为false时，如果返回条数大于1.只会返回每个实体的外包矩形，如果条数为1的话，会返回此实体的真实geojson；realgeom为true时每条都会返回实体的geojson
-      realgeom: true,
+      includegeom: queryParam.coordType == 1, // 是否返回几何数据,为了性能问题，realgeom为false时，如果返回条数大于1.只会返回每个实体的外包矩形，如果条数为1的话，会返回此实体的真实geojson；realgeom为true时每条都会返回实体的geojson
+      realgeom: queryParam.coordType == 1,
       isContains: queryParam.isContains, //矩形包含才行,false是相交关系
       beginpos: beginPos, // 记录开始位置
       limit: limit, // 每次查5万条
@@ -57,8 +61,9 @@ export async function queryMapData(
   };
 
   let retResult = ProcessDataToFeatureCollection(map, res, queryParam.coordType == 1);
-  
-  await cacheStorage.setValueByKey(cacheStorage.toStringKey(cacheKey, "query_"), retResult, true);
+  if (queryParam.disableCacheData === true) {
+    await cacheStorage.setValueByKey(cacheStorage.toStringKey(cacheKey, "query_"), retResult, true);
+  }
   return retResult;
 }
 

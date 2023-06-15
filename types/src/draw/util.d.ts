@@ -1,4 +1,4 @@
-import vjmap, { IDrawTool } from "vjmap";
+import vjmap, { GeoPoint, IDrawTool } from "vjmap";
 import type { Map } from "vjmap";
 import { exportDwg } from "./export";
 export { exportDwg };
@@ -26,6 +26,8 @@ export declare const interactiveCreateGeom: (data: any, map: Map, options?: Reco
     tempLineColor?: string;
     baseAlign?: "leftBottom" | "center" | "leftTop";
     keepGeoSize?: boolean;
+    position?: GeoPoint;
+    unCombineFeature?: boolean;
 }) => Promise<{
     feature: any;
     rotation: number;
@@ -43,6 +45,7 @@ export declare const getQueryGeomData: (map: Map, queryParam: any, propData?: Re
             objectid: string;
             color: string;
             alpha: number;
+            opacity: number;
             lineWidth: number;
             name: any;
             isline: any;
@@ -51,7 +54,7 @@ export declare const getQueryGeomData: (map: Map, queryParam: any, propData?: Re
         geometry: any;
     }[];
 }>;
-export declare const createOutSymbol: (map: Map, draw: IDrawTool, options?: Record<string, any>, drawProperty?: Record<string, any>, showInfoFunc?: Function, param?: Record<string, any>) => Promise<void>;
+export declare const createOutSymbol: (map: Map, draw: IDrawTool, options?: Record<string, any>, drawProperty?: Record<string, any>, showInfoFunc?: Function, param?: Record<string, any>) => Promise<any>;
 export declare const drawText: (map: Map, draw: IDrawTool, options?: Record<string, any>, drawProperty?: Record<string, any>, showInfoFunc?: Function) => Promise<void>;
 export declare const addFeaturesToDraw: (data: any, drawLayer: any, combineInObject?: boolean) => any;
 export declare const getPointOnePixelDrawStyleOption: () => any;

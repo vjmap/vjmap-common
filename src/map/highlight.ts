@@ -190,8 +190,8 @@ export const getHighlightEntities = async (
           condition: ``, // 只需要写sql语句where后面的条件内容,字段内容请参考文档"服务端条件查询和表达式查询"
           bounds: bounds, //查找此范围内的实体
           fields: "",
-          includegeom: true, // 是否返回几何数据,为了性能问题，realgeom为false时，如果返回条数大于1.只会返回每个实体的外包矩形，如果条数为1的话，会返回此实体的真实geojson；realgeom为true时每条都会返回实体的geojson
-          realgeom: true,
+          includegeom: useGeomCoord, // 是否返回几何数据,为了性能问题，realgeom为false时，如果返回条数大于1.只会返回每个实体的外包矩形，如果条数为1的话，会返回此实体的真实geojson；realgeom为true时每条都会返回实体的geojson
+          realgeom: useGeomCoord,
           isContains: bounds && bounds[0] > bounds[2], //矩形包含才行,false是相交关系
           beginpos: beginPos, // 记录开始位置
           limit: limit, // 每次查5万条
@@ -202,8 +202,8 @@ export const getHighlightEntities = async (
         query = await svc.conditionQueryFeature({
           condition: queryIdContion,
           fields: "",
-          includegeom: true, // 是否返回几何数据,为了性能问题，realgeom为false时，如果返回条数大于1.只会返回每个实体的外包矩形，如果条数为1的话，会返回此实体的真实geojson；realgeom为true时每条都会返回实体的geojson
-          realgeom: true,
+          includegeom: useGeomCoord, // 是否返回几何数据,为了性能问题，realgeom为false时，如果返回条数大于1.只会返回每个实体的外包矩形，如果条数为1的话，会返回此实体的真实geojson；realgeom为true时每条都会返回实体的geojson
+          realgeom: useGeomCoord,
           beginpos: beginPos, // 记录开始位置
           limit: limit, // 每次查5万条
           ...queryParam,
@@ -263,10 +263,11 @@ export const getHighlightEntities = async (
           ent.points || ent.positon || ent.location || ent.origin || ent.center;
         if (coord) {
           const pts = coord.split(";");
-          const points = pts.map((p: string) =>
-            map.toLngLat(vjmap.GeoPoint.fromString(p))
-          );
-
+          const points = [];
+          for(let p of pts) {
+            if (p.indexOf(",") > 0)
+            points.push(map.toLngLat(vjmap.GeoPoint.fromString(p)))
+          }
           if (points.length == 1) {
             const feature = {
               type: "Feature",
