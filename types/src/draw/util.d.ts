@@ -27,6 +27,8 @@ export declare const interactiveCreateGeom: (data: any, map: Map, options?: Reco
     baseAlign?: "leftBottom" | "center" | "leftTop";
     keepGeoSize?: boolean;
     position?: GeoPoint;
+    scaleValue?: number;
+    angleValue?: number;
     unCombineFeature?: boolean;
 }) => Promise<{
     feature: any;

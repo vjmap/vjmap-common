@@ -244,6 +244,8 @@ export declare const interactiveCreateGeom: (data: any, map: Map_2, options?: Re
     baseAlign?: "leftBottom" | "center" | "leftTop";
     keepGeoSize?: boolean;
     position?: GeoPoint;
+    scaleValue?: number;
+    angleValue?: number;
     unCombineFeature?: boolean;
 }) => Promise<{
     feature: any;

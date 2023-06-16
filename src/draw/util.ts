@@ -483,6 +483,8 @@ export const interactiveCreateGeom = async (
     baseAlign?: "leftBottom" | "center" | "leftTop" /*绘制的基点的位置方向 */;
     keepGeoSize?: boolean /*保持原来的大小，不进行缩放至像素距离 */;
     position?: GeoPoint /* 如果指定了位置，则不需交互拾取位置  */
+    scaleValue?: number /* 如果禁止指定缩放并且 指定了缩放倍数  */
+    angleValue?: number /* 如果禁止指定旋转并且 指定了旋转角度  */
     unCombineFeature?: boolean /*  不组合成一个新实体 */
   }
 ) => {
@@ -643,6 +645,17 @@ export const interactiveCreateGeom = async (
         if (scale < 0.0001) scale = 0.1;
       }
       tempLine.setData(map.toLngLat([destPt, destPt]));
+    } else {
+      scale = param.scaleValue ?? 0;
+      tempDraw.deleteAll();
+      let drawData = transformGeoJsonData(
+        map,
+        vjmap.cloneDeep(oldData),
+        geoCenter,
+        destPt,
+        scale
+      );
+      tempDraw.set(drawData); // 设置成新的数据
     }
 
     let angle = 0;
@@ -687,6 +700,18 @@ export const interactiveCreateGeom = async (
         );
         tempDraw.set(drawData);
       }
+    }  else {
+      angle = param.angleValue ?? 0;
+      tempDraw.deleteAll();
+      let drawData = transformGeoJsonData(
+        map,
+        vjmap.cloneDeep(oldData),
+        geoCenter,
+        destPt,
+        scale,
+        angle
+      );
+      tempDraw.set(drawData); // 设置成新的数据
     }
     map.setIsInteracting(false);
 
@@ -1067,6 +1092,7 @@ export const createOutSymbol = async (
       version: symbolMapVer,
       layer: styleName,
       condition: param.condition ?? "layerindex=1", // 只需要写sql语句where后面的条件内容,字段内容请参考文档"服务端条件查询和表达式查询"
+      simplifyTolerance: param.simplifyTolerance
     },
     {
       symbolId: vjmap.RandomID(),
@@ -1076,10 +1102,12 @@ export const createOutSymbol = async (
   let res = await interactiveCreateGeom(data, map, options, showInfoFunc, {
     ...drawProperty,
     baseAlign: "center",
-    position: param.position
+    position: param.position,
+    angleValue: param.angleValue,
+    scaleValue: param.scaleValue
   });
   if (!res) return;
-  let innerProps = new Set(["disableScale", "disableRotate", "drawInitPixelLength", "tempLineColor", "baseAlign", "keepGeoSize", "position", "unCombineFeature"])
+  let innerProps = new Set(["disableScale", "disableRotate", "drawInitPixelLength", "tempLineColor", "baseAlign", "keepGeoSize", "position", "scaleValue", "angleValue", "unCombineFeature"])
   if (drawProperty?.unCombineFeature) {
     let ids: any = []
     for(let i = 0; i < res.feature.features.length; i++) {
