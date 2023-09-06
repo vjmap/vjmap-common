@@ -1,5 +1,7 @@
 import vjmap, { IDrawTool } from "vjmap";
 import type { Map } from "vjmap";
+import { drawText } from "./util";
+import { transformFourParam, transformGeoJsonData } from "../utils";
 
 const creatPoint = (coordinates: any, properties: any, radius: number, isGeometryCollection?: boolean, map?: Map) => {
     if (properties.symbol && properties.text && map) {
@@ -89,11 +91,7 @@ const createMText = (coordinates: any, properties: any, map: Map) => {
     return [ text];
 }
 
-const createText = (feature: any, properties: any, map: Map) => {
-    let textAttr = properties.export || {};
-    if (!textAttr.refCo1 || !textAttr.refCo2 || !textAttr.height || !textAttr.position) return;
-    let x, y, height;
-    // 取数据上的二个点参考点，和之前保存的参考点计算旋转和缩放系数，用来确定文字的位置和高度属性
+export const getTextRefCo = (feature: any) => {
     let refCo1, refCo2;
     if (feature.geometry.type == "Polygon") {
         refCo1 = feature.geometry.coordinates[0][0];
@@ -119,6 +117,16 @@ const createText = (feature: any, properties: any, map: Map) => {
             refCo2 = f2.coordinates[f2.coordinates.length - 1][1];
         }
     }
+    return {
+        refCo1, refCo2
+    }
+}
+const createText = (feature: any, properties: any, map: Map) => {
+    let textAttr = properties.export || {};
+    if (!textAttr.refCo1 || !textAttr.refCo2 || !textAttr.height || !textAttr.position) return;
+    let x, y, height;
+    // 取数据上的二个点参考点，和之前保存的参考点计算旋转和缩放系数，用来确定文字的位置和高度属性
+    let { refCo1, refCo2 } = getTextRefCo(feature);
     if (!refCo1 || !refCo2) return;
     // 通过之前保存的对应点和现在的对应点，计算缩放和旋转及平移参数
     let param = vjmap.coordTransfromGetFourParamter([vjmap.geoPoint(textAttr.refCo1), vjmap.geoPoint(textAttr.refCo2)],
@@ -174,6 +182,59 @@ const fixColor = (ent: any) => {
     }
     return ent;
 }
+
+// 修改图中已绘制的文本
+export const modifyDrawText = async (map: Map,  draw: IDrawTool, promptFunc?: Function /* 显示函数。返回promise<string>*/, message?: Function) => {
+    // 先进行选择，点右键确定选择
+    message = message || console.log;
+    message("请选择要选择的绘制文字，按右键结束");
+    let selected = await vjmap.Draw.actionSelect(map, draw);
+    if (selected.features.length == 0) return; // 如果没有要选择的实体
+    if (!(selected.features[0].properties.export && selected.features[0].properties.export.contents)) {
+        message("选择的不是绘制的文本类型");
+        return;
+    }
+    let prop = selected.features[0].properties.export;
+    let content;
+    if (promptFunc) {
+      content = await promptFunc(prop.contents);
+    } else {
+      content  = prompt(
+        "请输入要修改的文字内容",
+        prop.contents
+      );
+    }
+    
+    if (content == "" || content == null || content == prop.contents) {
+      return; // 没有改变
+    } 
+
+    let feature = selected.features[0];
+
+    // 取数据上的二个点参考点，和之前保存的参考点计算旋转和缩放系数，用来确定文字的位置和高度属性
+    let { refCo1, refCo2 } = getTextRefCo(feature);
+    if (!refCo1 || !refCo2) return;
+    // 通过之前保存的对应点和现在的对应点，计算缩放和旋转及平移参数
+    let fourParam = vjmap.coordTransfromGetFourParamter([vjmap.geoPoint(prop.mapRefCo1), vjmap.geoPoint(prop.mapRefCo2)],
+        [vjmap.geoPoint(map.fromLngLat(refCo1)), vjmap.geoPoint(map.fromLngLat(refCo2))], false, false);
+
+    let textData = await drawText(map, draw, {}, {
+        color: selected.features[0].properties.color,// 颜色
+        text: content,
+        height: prop.height
+    }, undefined, true);
+
+    let geoTextData = textData;
+    let newTextData = transformFourParam(
+        map,
+        vjmap.cloneDeep(geoTextData),
+        fourParam,
+      );
+      newTextData.features[0].id = selected.features[0].id;
+      draw.delete(selected.features[0].id);
+      draw.add(newTextData)
+}
+
 // 导出成dwg图
 export const exportDwg = async (map: Map,  draw: IDrawTool, newMapId?: string) => {
     let entsJson = draw.getAll();

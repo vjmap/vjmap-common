@@ -11,4 +11,5 @@ export declare const getTileShards: (tileUrl: string) => {
 export declare const isAlphanumeric: (char: string) => boolean;
 export declare const isWebBaseMap: (baseMapType?: string) => boolean;
 export declare const getEntityObjectId: (id: string) => string;
-export declare const transformGeoJsonData: (map: Map, data: any, basePt: any, destPt: any, scale?: number, angle?: number) => any;
+export declare const transformGeoJsonData: (map: Map, data: any, basePt: any, destPt: any, scale?: number, angle?: number, isGeoCoord?: boolean) => any;
+export declare const transformFourParam: (map: Map, data: any, fourParam: any, isGeoCoord?: boolean) => any;

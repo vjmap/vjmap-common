@@ -646,7 +646,7 @@ export const interactiveCreateGeom = async (
       }
       tempLine.setData(map.toLngLat([destPt, destPt]));
     } else {
-      scale = param.scaleValue ?? 0;
+      scale = param.scaleValue ?? 1;
       tempDraw.deleteAll();
       let drawData = transformGeoJsonData(
         map,
@@ -1138,7 +1138,8 @@ export const drawText = async (
   draw: IDrawTool,
   options?: Record<string, any>,
   drawProperty?: Record<string, any>,
-  showInfoFunc?: Function
+  showInfoFunc?: Function,
+  disableInteractive?: boolean
 ) => {
   drawProperty = drawProperty || {};
   if (!drawProperty.text) return;
@@ -1151,16 +1152,32 @@ export const drawText = async (
     color: map.htmlColorToEntColor(drawProperty.color),
     horizontalMode: vjmap.DbTextHorzMode.kTextLeft,
     verticalMode: vjmap.DbTextVertMode.kTextBottom,
-    height: 10,
+    height: drawProperty.height || 50,
   };
+ 
   let text = new vjmap.DbText(textAttr);
   entities.push(text);
 
   let data = await createGeomData(map, entities, docBounds); // 显示线宽
   const docProj = new vjmap.GeoProjection(vjmap.GeoBounds.fromArray(docBounds));
   // 需要取数据上的二个点做为参考点，如果以后要导出dwg的时候，创建文字的时候，计算旋转和缩放系数，用来确定文字的位置和高度属性
-  let props = addExportRefInfoInText(docProj, data);
-  textAttr = { ...textAttr, ...props };
+  let props = addExportRefInfoInText(docProj, data); // 相对于创建文档的参考点坐标
+  let refInfo = addExportRefInfoInText(map, data);// 相对于当前地图的参考点坐标
+  textAttr = { ...textAttr, ...props, mapRefCo1: refInfo.refCo1, mapRefCo2: refInfo.refCo2 };
+
+  if (disableInteractive === true) {
+    // 如果是直接返回刚创建的，不用交互
+    const tempDraw = map.createDrawLayer(); 
+    addFeaturesToDraw(data, tempDraw);
+    let geojson = tempDraw.getAll();
+    let features = geojson.features;
+    map.removeDrawLayer(tempDraw);
+    if (features.length > 0) {
+      features[0].properties = features[0].properties ?? {};
+      features[0].properties.export = textAttr;
+    }
+    return geojson;
+  }
 
   let res = await interactiveCreateGeom(data, map, options, showInfoFunc, {
     ...drawProperty,

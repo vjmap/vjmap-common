@@ -124,18 +124,33 @@ export const getEntityObjectId = (id: string) => {
 }
 
 
-// data geojson数据；basePt基点，destPt要移动至的位置；scale 缩放倍数，angle旋转角度
+// data geojson数据；basePt基点，destPt要移动至的位置；scale 缩放倍数，angle旋转角度, isGeoCoord传入的是否为几何坐标
 export const transformGeoJsonData = (
   map: Map,
   data: any,
   basePt: any,
   destPt: any,
   scale = 1.0,
-  angle = 0.0
+  angle = 0.0,
+  isGeoCoord = false
 ) => {
   return vjmap.transform.convert(data, (pt) => {
-    let point = map.fromLngLat(vjmap.geoPoint(pt));
+    let point = isGeoCoord === true ? vjmap.geoPoint(pt) : map.fromLngLat(vjmap.geoPoint(pt));
     point.transform(basePt, destPt, scale, angle);
-    return map.toLngLat(point);
+    return isGeoCoord === true ? [point.x, point.y] : map.toLngLat(point);
+  });
+};
+
+// data geojson数据；basePt基点，destPt要移动至的位置；scale 缩放倍数，angle旋转角度, isGeoCoord传入的是否为几何坐标
+export const transformFourParam = (
+  map: Map,
+  data: any,
+  fourParam: any,
+  isGeoCoord = false
+) => {
+  return vjmap.transform.convert(data, (pt) => {
+    let point = isGeoCoord === true ? vjmap.geoPoint(pt) : map.fromLngLat(vjmap.geoPoint(pt));
+    let newPoint  = vjmap.coordTransfromByFourParamter(point, fourParam);
+    return isGeoCoord === true ? [newPoint.x, newPoint.y] : map.toLngLat(newPoint);
   });
 };
