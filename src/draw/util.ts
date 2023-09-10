@@ -1140,7 +1140,7 @@ export const drawText = async (
   drawProperty?: Record<string, any>,
   showInfoFunc?: Function,
   disableInteractive?: boolean
-) => {
+): Promise<any> => {
   drawProperty = drawProperty || {};
   if (!drawProperty.text) return;
   let docBounds: [number, number, number, number] = [-1000, -1000, 1000, 1000]; // 文档坐标范围，可以根据需要自己定，但要保证是正方形。保证下面绘制的实体在此范围内
